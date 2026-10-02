@@ -1,15 +1,11 @@
-#!/usr/bin/env python3
 import argparse
 import select
 import socket
 import sys
 import threading
 import time
-
 import serial
-
 import config
-from gpio_testpoints import TestPoints
 from protocol import StatusParser, build_command_set
 from wheel_packet import (
     WheelState,
@@ -18,6 +14,64 @@ from wheel_packet import (
     normalize_throttle,
     parse_packet,
 )
+
+try:
+    from gpiozero import DigitalOutputDevice
+except ImportError:
+    DigitalOutputDevice = None
+
+
+class TestPoints:
+    def __init__(self, udprx_gpio: int, cmdtx_gpio: int, pulse_s: float):
+        self.pulse_s = pulse_s
+        self.enabled = DigitalOutputDevice is not None
+        self.udprx = None
+        self.cmdtx = None
+        self._timers: dict[object, threading.Timer] = {}
+
+        if self.enabled:
+            self.udprx = DigitalOutputDevice(
+                udprx_gpio,
+                active_high=True,
+                initial_value=False,
+            )
+            self.cmdtx = DigitalOutputDevice(
+                cmdtx_gpio,
+                active_high=True,
+                initial_value=False,
+            )
+        else:
+            print("WARNING: gpiozero unavailable - test-point toggles disabled")
+
+    def pulse_udprx(self) -> None:
+        self._pulse(self.udprx)
+
+    def pulse_cmdtx(self) -> None:
+        self._pulse(self.cmdtx)
+
+    def _pulse(self, pin) -> None:
+        if not self.enabled or pin is None:
+            return
+
+        old_timer = self._timers.pop(pin, None)
+        if old_timer is not None:
+            old_timer.cancel()
+
+        pin.on()
+        timer = threading.Timer(self.pulse_s, pin.off)
+        timer.daemon = True
+        self._timers[pin] = timer
+        timer.start()
+
+    def close(self) -> None:
+        for timer in self._timers.values():
+            timer.cancel()
+        self._timers.clear()
+
+        for pin in (self.udprx, self.cmdtx):
+            if pin is not None:
+                pin.off()
+                pin.close()
 
 
 class VehicleCommand:
@@ -247,7 +301,6 @@ def main() -> int:
             try:
                 testpoints.pulse_cmdtx()
                 ser.write(frame_set)
-                ser.flush()
             except serial.SerialException as exc:
                 print(f"UART write error: {exc}", file=sys.stderr)
                 break
