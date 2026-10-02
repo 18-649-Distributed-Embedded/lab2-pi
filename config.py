@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 # UDP input from the laptop wheel proxy.
-UDP_BIND_IP = "0.0.0.0"
+UDP_BIND_IP = "172.26.5.201"
 UDP_PORT = 8000
 UDP_PACKET_SIZE = 276
 UDP_TIMEOUT_S = 0.150
@@ -28,8 +28,8 @@ TESTPOINT_PULSE_S = 0.001
 COUNTER_OFFSET = 0
 STEER_OFFSET = 4
 THROTTLE_OFFSET = 8
-BRAKE_OFFSET = 20
-BUTTONS_OFFSET = 52
+BRAKE_OFFSET = 24
+BUTTONS_OFFSET = 48
 BUTTON_COUNT = 128
 
 # Replace these with the measured raw values from your Pi wheel monitor.
@@ -40,16 +40,16 @@ STEER_MAX = 32767
 
 # Update after recording pedal values. Set RELEASED and PRESSED according to
 # what your specific wheel proxy reports, regardless of sign/order.
-THROTTLE_RELEASED = -32768
+THROTTLE_RELEASED = 0
 THROTTLE_PRESSED = 32767
-BRAKE_RELEASED = -32768
+BRAKE_RELEASED = 0
 BRAKE_PRESSED = 32767
 
 # Wheel button indices - intentionally unset until measured with wheelmonitor -r.
-BUTTON_LEFT_BLINKER = None
-BUTTON_RIGHT_BLINKER = None
-BUTTON_HAZARD = None
-BUTTON_TEST = None
+BUTTON_LEFT_BLINKER = 9
+BUTTON_RIGHT_BLINKER = 8
+BUTTON_HAZARD = 7
+BUTTON_TEST = 6
 
 # Steering-based turn-signal self-cancel settings in raw wheel units.
 TURN_CANCEL_THRESHOLD = 12000
