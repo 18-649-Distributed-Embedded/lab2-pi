@@ -27,6 +27,14 @@ def build_frame(can_id: int, payload: bytes) -> bytes:
     checksum = sum(body) & 0xFF
     return bytes([FRAME_SYNC]) + body + bytes([checksum, FRAME_END])
 
+# Added for checkoff
+def build_bad_brake_frame(seq: int) -> bytes:
+    """CmdBrake frame requesting brake=1, with an intentionally bad checksum."""
+    valid = build_frame(0x010, struct.pack("<BB", seq & 0xFF, 1))
+
+    bad = bytearray(valid)
+    bad[-2] ^= 0xFF  # corrupt checksum; final byte remains FRAME_END (0x55)
+    return bytes(bad)
 
 def build_command_set(
     seq: int,

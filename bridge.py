@@ -6,7 +6,7 @@ import threading
 import time
 import serial
 import config
-from protocol import StatusParser, build_command_set
+from protocol import StatusParser, build_bad_brake_frame, build_command_set
 from wheel_packet import (
     WheelState,
     normalize_brake,
@@ -206,7 +206,17 @@ def main() -> int:
     parser.add_argument("--baud", type=int, default=config.UART_BAUD)
     parser.add_argument("--no-gpio", action="store_true", help="disable UDPRX/CMDTX test point pulses")
     parser.add_argument("--verbose", action="store_true")
+    # Added for checkoff
+    parser.add_argument(
+        "--inject-bad-brake-once",
+        action="store_true",
+        help="append one bad-checksum brake frame 5s after the first normal command set",
+    )
+
+
     args = parser.parse_args()
+    bad_brake_pending = args.inject_bad_brake_once
+    bad_brake_at = time.monotonic() + 5.0
 
     command = VehicleCommand()
     stop = threading.Event()
@@ -301,6 +311,13 @@ def main() -> int:
             try:
                 testpoints.pulse_cmdtx()
                 ser.write(frame_set)
+
+                if bad_brake_pending and time.monotonic() >= bad_brake_at:
+                    ser.write(build_bad_brake_frame(seq))
+                    ser.flush()
+                    bad_brake_pending = False
+                    print("[TEST] Injected one bad-checksum CmdBrake frame; STM32 should ignore it.")
+
             except serial.SerialException as exc:
                 print(f"UART write error: {exc}", file=sys.stderr)
                 break
